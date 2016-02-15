@@ -62,7 +62,7 @@
 
 @end
 
-#pragma mark - 
+#pragma mark -
 /**
  * Private category on UIView to be used by the UINibWrapper.
  **/
@@ -89,8 +89,26 @@
     if (!viewClass)
         viewClass = UIView.class;
     
-    UIView *view = [viewClass nwp_instanceFromNibName:_nibName];
+    if ([[NSThread currentThread] isMainThread]) {
+        UIView *view = [viewClass nwp_instanceFromNibName:_nibName];
+        [self setLayoutProperty:view];
+    } else {
+        __block UIView *view = nil;
+        dispatch_group_t group = dispatch_group_create();
+        dispatch_queue_t queue = dispatch_get_main_queue();
+        dispatch_group_async(group, queue, ^{
+            view = [viewClass nwp_instanceFromNibName:_nibName];
+        });
+        
+        dispatch_group_notify(group, queue, ^{
+            [self setLayoutProperty:view];
+        });
+    }
     
+}
+
+- (void)setLayoutProperty:(UIView *)view
+{
     if (view)
     {
         [view setTranslatesAutoresizingMaskIntoConstraints:NO];
@@ -114,7 +132,7 @@
     UIColor *textColor = [UIColor colorWithWhite:0.1 alpha:1.0];
     UIColor *backgroundColor = [[UIColor blueColor] colorWithAlphaComponent:0.2];
     NSString *text = [NSString stringWithFormat:@"%@", _nibName];
-
+    
     UIBezierPath *path = [UIBezierPath bezierPathWithRect:self.bounds];
     [backgroundColor setFill];
     [path fill];
@@ -125,9 +143,9 @@
                                  NSForegroundColorAttributeName: textColor};
     
     CGRect bounds = [text boundingRectWithSize:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX)
-                                        options:NSStringDrawingUsesLineFragmentOrigin
-                                     attributes:attributes
-                                        context:nil];
+                                       options:NSStringDrawingUsesLineFragmentOrigin
+                                    attributes:attributes
+                                       context:nil];
     
     CGPoint drawingPoint = CGPointMake(floorf(center.x - bounds.size.width/2.0), floorf(center.y - bounds.size.height/2.0));
     [text drawAtPoint:drawingPoint withAttributes:attributes];
